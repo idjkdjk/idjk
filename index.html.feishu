@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>💪 4月健身</title>
+<style>
+:root{--bg-dark:#0a0a0f;--bg-card:#12121a;--bg-card2:#1a1a25;--cyan:#00f5ff;--green:#00ff88;--orange:#ff6b35;--pink:#ff0080;--purple:#a855f7;--text:#fff;--text2:#8b8b9a;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro',Roboto,sans-serif;background:var(--bg-dark);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 20%,rgba(0,245,255,0.06) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(168,85,247,0.06) 0%,transparent 50%);pointer-events:none;z-index:0}
+.container{max-width:480px;margin:0 auto;padding:16px;position:relative;z-index:1}
+.header{text-align:center;padding:20px 0}
+.header h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.date-badge{display:inline-block;margin-top:10px;padding:6px 18px;background:var(--bg-card);border:1px solid rgba(0,245,255,0.3);border-radius:20px;font-size:13px;color:var(--cyan);font-weight:600}
+.card{background:var(--bg-card);border-radius:20px;padding:20px;margin-bottom:14px;border:1px solid rgba(255,255,255,0.04)}
+.section-title{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:2px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';width:4px;height:14px;background:linear-gradient(180deg,var(--cyan),var(--purple));border-radius:2px}
+.stats5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.s-card{background:var(--bg-card2);border-radius:12px;padding:10px 2px;text-align:center;position:relative;overflow:hidden;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,0.03)}
+.s-card:active{transform:scale(0.95)}
+.s-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.s-card.score::before{background:var(--purple)}
+.s-card.weight::before{background:var(--cyan)}
+.s-card.visceral::before{background:var(--orange)}
+.s-card.fat::before{background:var(--green)}
+.s-card.protein::before{background:var(--pink)}
+.s-label{font-size:8px;color:var(--text2);margin-bottom:4px;font-weight:600}
+.s-val{font-size:15px;font-weight:800}
+.s-unit{font-size:9px;opacity:0.6}
+.s-tgt{font-size:7px;color:var(--text2);margin-top:2px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.g-item{background:var(--bg-card2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.03);position:relative;padding-left:18px}
+.g-item.vi{border-left:3px solid var(--orange)}
+.g-item.ca{border-left:3px solid var(--green)}
+.g-item.sl{border-left:3px solid var(--cyan)}
+.g-item.pr{border-left:3px solid var(--pink)}
+.g-icon{font-size:22px}
+.g-txt{font-size:13px;font-weight:700}
+.g-desc{font-size:10px;color:var(--text2);margin-top:2px}
+.cal-head{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.cal-arrow{font-size:11px;color:var(--text2);transition:transform .3s}
+.cal-arrow.expanded{transform:rotate(180deg)}
+.cal-collapse{padding:12px;background:var(--bg-card2);border-radius:14px;border:1px solid rgba(255,255,255,0.03)}
+.today-info{display:flex;align-items:center;gap:12px}
+.today-icon{font-size:30px}
+.today-date{font-size:15px;font-weight:700}
+.today-plan{font-size:11px;color:var(--text2);margin-top:2px}
+.today-hint{font-size:10px;color:var(--cyan);margin-top:4px}
+.day-g{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:12px}
+.d-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg-card2);border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.03);min-height:40px;transition:all .2s}
+.d-cell:hover{background:#222}
+.d-cell.active{background:linear-gradient(135deg,var(--cyan),var(--purple));border-color:transparent}
+.d-cell.rest{background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.15)}
+.d-cell.empty{background:transparent;cursor:default}
+.d-num{font-size:12px;font-weight:700}
+.d-type{font-size:7px;margin-top:1px;opacity:0.7}
+.train-item{background:var(--bg-card2);border-radius:12px;padding:14px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.03)}
+.train-head{display:flex;justify-content:space-between;margin-bottom:6px}
+.train-name{font-size:13px;font-weight:700;color:var(--cyan)}
+.train-time{font-size:10px;color:var(--text2)}
+.train-summary{background:linear-gradient(135deg,rgba(0,245,255,0.08),rgba(168,85,247,0.08));border:1px solid rgba(0,245,255,0.15);border-radius:12px;padding:12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center}
+.sum-label{font-size:11px;color:var(--text2)}
+.sum-val{font-size:16px;font-weight:800;color:var(--cyan)}
+.p2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.p-item{background:var(--bg-card2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.03)}
+.p-icon{font-size:24px}
+.p-text{font-size:14px;font-weight:700}
+.login-card{background:var(--bg-card);border-radius:20px;padding:40px 20px;margin-bottom:14px;border:1px solid rgba(255,255,255,0.04);text-align:center}
+.login-card h2{font-size:20px;font-weight:800;margin-bottom:10px;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-card p{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5}
+.login-btn{padding:16px 32px;background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;border-radius:14px;font-size:15px;font-weight:700;color:var(--bg-dark);cursor:pointer;box-shadow:0 0 20px rgba(0,245,255,0.3)}
+.login-btn:active{transform:scale(0.95)}
+.m-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;visibility:hidden;transition:all .3s;padding:20px}
+.m-overlay.active{opacity:1;visibility:visible}
+.m{background:var(--bg-card);border-radius:20px;padding:24px;width:100%;max-width:340px;transform:translateY(20px);transition:all .3s;border:1px solid rgba(255,255,255,0.08)}
+.m-overlay.active .m{transform:translateY(0)}
+.m h3{font-size:18px;font-weight:800;text-align:center;margin-bottom:20px;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600}
+.fg input{width:100%;padding:14px;background:var(--bg-dark);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:var(--text);font-size:15px;transition:border-color .3s}
+.fg input:focus{outline:none;border-color:var(--cyan)}
+.m-btns{display:flex;gap:12px;margin-top:20px}
+.m-btns button{flex:1;padding:14px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-canc{background:var(--bg-card2);color:var(--text2)}
+.btn-conf{background:linear-gradient(135deg,var(--cyan),var(--purple));color:var(--bg-dark)}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--bg-card);color:var(--text);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;z-index:2000;transition:transform .3s;border:1px solid rgba(255,255,255,0.1)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:var(--green);color:var(--green)}
+.toast.err{border-color:var(--orange);color:var(--orange)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="login-card" id="loginScreen">
+    <h2>💪 健身追踪</h2>
+    <p>点击按钮连接飞书<br>同步你的健身数据</p>
+    <button class="login-btn" onclick="startLogin()">🔗 连接飞书</button>
+  </div>
+
+  <div id="mainApp" class="hidden">
+    <div class="header">
+      <h1>💪 4月健身计划</h1>
+      <div class="date-badge" id="curDate"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">📊 今日体测</div>
+      <div class="stats5" onclick="openBodyModal()">
+        <div class="s-card score"><div class="s-label">💪 得分</div><div class="s-val" id="sScore">-</div><div class="s-tgt">目标 >85</div></div>
+        <div class="s-card weight"><div class="s-label">⚖️ 体重</div><div class="s-val" id="sWeight">-<span class="s-unit">kg</span></div><div class="s-tgt">目标 74</div></div>
+        <div class="s-card visceral"><div class="s-label">🔥 内脏</div><div class="s-val" id="sVisceral">-<span class="s-unit">级</span></div><div class="s-tgt">目标 &lt;9</div></div>
+        <div class="s-card fat"><div class="s-label">📈 体脂</div><div class="s-val" id="sFat">-<span class="s-unit">%</span></div><div class="s-tgt">目标 &lt;20</div></div>
+        <div class="s-card protein"><div class="s-label">🥩 蛋白</div><div class="s-val" id="sProtein">-<span class="s-unit">%</span></div><div class="s-tgt">正常</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">🎯 本月目标</div>
+      <div class="g2">
+        <div class="g-item vi"><div class="g-icon">🔥</div><div><div class="g-txt" id="gVisceral">内脏脂肪 → &lt;9</div><div class="g-desc" id="gVisceralCurrent">当前 10.0 级</div></div></div>
+        <div class="g-item ca"><div class="g-icon">🏃</div><div><div class="g-txt">每天有氧</div><div class="g-desc">30分钟</div></div></div>
+        <div class="g-item sl"><div class="g-icon">😴</div><div><div class="g-txt">保证睡眠</div><div class="g-desc">7小时/天</div></div></div>
+        <div class="g-item pr"><div class="g-icon">💪</div><div><div class="g-txt">蛋白质够</div><div class="g-desc">热量缺口</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cal-head" onclick="toggleCal()">
+        <div class="section-title" style="margin-bottom:0">📅 4月日历</div>
+        <div class="cal-arrow" id="calArrow">▼</div>
+      </div>
+      <div id="calExp" class="hidden"><div class="day-g" id="dayG"></div></div>
+      <div id="calCol" class="cal-collapse">
+        <div class="today-info">
+          <div class="today-icon" id="tIcon">💪</div>
+          <div>
+            <div class="today-date" id="tDate">4月6日 周一</div>
+            <div class="today-plan" id="tPlan">上肢推</div>
+            <div class="today-hint">点击展开查看整月 →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">🏋️ 训练记录</div>
+      <div id="trainList"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">⚠️ 核心原则</div>
+      <div class="p2">
+        <div class="p-item"><div class="p-icon">🍺</div><div class="p-text">戒酒</div></div>
+        <div class="p-item"><div class="p-icon">🥤</div><div class="p-text">戒糖</div></div>
+        <div class="p-item"><div class="p-icon">💪</div><div class="p-text">吃好</div></div>
+        <div class="p-item"><div class="p-icon">😴</div><div class="p-text">睡好</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="m-overlay" id="bodyModal">
+  <div class="m">
+    <h3>编辑体测数据</h3>
+    <div class="fg"><label>日期</label><input type="date" id="bDate" readonly></div>
+    <div class="fg"><label>体重 (kg)</label><input type="number" step="0.01" id="bWeight" placeholder="77.5"></div>
+    <div class="fg"><label>体脂率 (%)</label><input type="number" step="0.1" id="bFat" placeholder="22.1"></div>
+    <div class="fg"><label>内脏脂肪 (级)</label><input type="number" step="0.1" id="bVisceral" placeholder="10.0"></div>
+    <div class="fg"><label>蛋白质 (%)</label><input type="number" step="0.1" id="bProtein" placeholder="16.7"></div>
+    <div class="m-btns"><button class="btn-canc" onclick="closeModal()">取消</button><button class="btn-conf" onclick="saveBody()">保存</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const APP_ID="cli_a95993a8d378dcef";
+const APP_SECRET="iQSq9ZuH3UKp6bKJpIX0Khx3BqLwPQf3";
+const DOCS={body:"PsZndjut9obmkwxLVYEcSSoXnmg",training:"ON0Wd24B3o6SZ0xyNsfcDN1Mnhe",diet:"HHs8dnpOjos51mxC6FFcHQFXnAT"};
+let selDate=new Date().toISOString().split("T")[0];
+let bodyData={},trainingData={},accessToken="";
+const WT={1:["push","pull","legs","cardio","rest"],2:["push","pull","legs","cardio","push","pull","rest"],3:["pull","legs","cardio","push","rest"],4:["push","pull","legs","cardio","rest"]};
+const TN=["推","拉","腿","有氧","休息"];
+const TI={push:"💪",pull:"💪",legs:"🦵",cardio:"🏃",rest:"😴"};
+const TG={push:"上肢推+肱三头肌",pull:"上肢拉+肱二头肌",legs:"下肢训练",cardio:"有氧运动",rest:"休息日"};
+function genPlan(){const p={};for(let d=1;d<=30;d++){const w=Math.ceil(d/7);const wt=WT[w]||WT[1];const ti=(d-1)%wt.length;const t=wt[ti];p["2026-04-"+d.toString().padStart(2,"0")]={type:t,name:TN[ti],week:w};}return p;}
+const PLANS=genPlan();
+document.addEventListener("DOMContentLoaded",()=>{checkAuth();});
+function checkAuth(){const t=localStorage.getItem("fit_token");if(t){accessToken=t;document.getElementById("loginScreen").classList.add("hidden");document.getElementById("mainApp").classList.remove("hidden");initApp();}}
+async function startLogin(){try{await getToken();document.getElementById("loginScreen").classList.add("hidden");document.getElementById("mainApp").classList.remove("hidden");initApp();}catch(e){showToast("连接失败","err");}}
+async function getToken(){const r=await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({app_id:APP_ID,app_secret:APP_SECRET})});const d=await r.json();if(d.code!==0)throw new Error(d.msg);accessToken=d.tenant_access_token;localStorage.setItem("fit_token",accessToken);}
+async function initApp(){const t=new Date().toISOString().split("T")[0];selDate=PLANS[t]?t:"2026-04-01";updDate();renderDays();updCalCol();await Promise.all([loadBody(),loadTraining()]);renderDetail();loadBodyData(selDate);}
+async function loadBody(){try{const c=await getDoc(DOCS.body);parseBody(c);}catch(e){console.log("Body err:",e);}}
+async function loadTraining(){try{const c=await getDoc(DOCS.training);parseTraining(c);}catch(e){console.log("Train err:",e);}}
+async function getDoc(id){const r=await fetch("https://open.feishu.cn/open-apis/docx/v1/documents/"+id+"/raw_content",{headers:{Authorization:"Bearer "+accessToken}});if(!r.ok)throw new Error("err");const d=await r.json();return d.data.content;}
+function parseBody(c){const b=c.split(/[*]{2}(\d{2}-\d{2})[*]{2}/);for(let i=1;i<b.length;i+=2){const ds="2026-"+b[i].replace("-","-");const bl=b[i+1]||"";const w=(bl.match(/体重[:：]\s*([\d.]+)/)||[])[1];const f=(bl.match(/体脂率[:：]\s*([\d.]+)%/)||[])[1];const v=(bl.match(/内脏脂肪[:：]\s*([\d.]+)级/)||[])[1];const p=(bl.match(/蛋白质[:：]\s*([\d.]+)%/)||[])[1];const s=(bl.match(/身体得分[:：]\s*(\d+)分/)||[])[1];if(w||f||v)bodyData[ds]={weight:w,fat:f,visceral:v,protein:p,score:s};}}
+function parseTraining(c){const b=c.split(/[*]{2}(\d{2}-\d{2})[*]{2}/);for(let i=1;i<b.length;i+=2){const ds="2026-"+b[i].replace("-","-");const bl=b[i+1]||"";const es=[];const re=/时间[:：]\s*([^|]+?)\s*\|[\s]*内容[:：]\s*([^|]+?)/g;let m;while((m=re.exec(bl))!==null)es.push({time:m[1].trim(),content:m[2].trim()});const sum=bl.match(/汇总[：:]\s*([\d~]+)\s*kcal/);if(es.length>0){trainingData[ds]=es;if(sum)trainingData[ds].push({time:"汇总",calories:sum[1].replace(/[^\d]/g,"")});}}}
+function updDate(){const d=new Date(selDate),days=["周日","周一","周二","周三","周四","周五","周六"];document.getElementById("curDate").textContent="4月"+d.getDate()+"日 "+days[d.getDay()];}
+function toggleCal(){const exp=document.getElementById("calExp"),col=document.getElementById("calCol"),arr=document.getElementById("calArrow");if(exp.classList.contains("hidden")){exp.classList.remove("hidden");col.classList.add("hidden");arr.classList.add("expanded");}else{exp.classList.add("hidden");col.classList.remove("hidden");arr.classList.remove("expanded");updCalCol();}}
+function updCalCol(){const plan=PLANS[selDate]||{};document.getElementById("tIcon").textContent=TI[plan.type]||"📅";document.getElementById("tDate").textContent="4月"+parseInt(selDate.split("-")[2])+"日 "+(plan.name||"");document.getElementById("tPlan").textContent=TG[plan.type]||"";}
+function renderDays(){const c=document.getElementById("dayG"),fd=new Date("2026-04-01").getDay();let h="";for(let i=0;i<fd;i++)h+='<div class="d-cell empty"></div>';for(let d=1;d<=30;d++){const ds="2026-04-"+d.toString().padStart(2,"0"),plan=PLANS[ds]||{},isA=ds===selDate,isR=plan.type==="rest";let cls="d-cell"+(isA?" active":"")+(isR?" rest":"");h+='<div class="'+cls+'" onclick="selDate2(\''+ds+'\')"><div class="d-num">'+d+'</div><div class="d-type">'+(plan.name||"")+"</div></div>";}c.innerHTML=h;}
+function selDate2(ds){selDate=ds;updDate();renderDays();updCalCol();renderDetail();loadBodyData(ds);}
+function renderDetail(){const rec=trainingData[selDate]||[],tc=document.getElementById("trainList");if(rec.length===0){tc.innerHTML='<div style="text-align:center;padding:20px;color:#8b8b9a;font-size:13px;">暂无训练记录</div>';}else{let h="";rec.forEach(r=>{if(r.time==="汇总"){h+='<div class="train-summary"><div class="sum-label">共'+(rec.length-1)+'笔训练</div><div class="sum-val">'+r.calories+' kcal</div></div>';}else{h+='<div class="train-item"><div class="train-head"><div class="train-name">'+r.content+'</div><div class="train-time">'+r.time+"</div></div></div>";}});tc.innerHTML=h;}}
+function loadBodyData(date){const bd=bodyData[date]||{};const sE=document.getElementById("sScore"),wE=document.getElementById("sWeight"),vE=document.getElementById("sVisceral"),fE=document.getElementById("sFat"),pE=document.getElementById("sProtein");if(sE)sE.textContent=bd.score||"-";if(wE)wE.innerHTML=(bd.weight?bd.weight+'<span class="s-unit">kg</span>':"-");if(vE)vE.innerHTML=(bd.visceral?bd.visceral+'<span class="s-unit">级</span>':"-");if(fE)fE.innerHTML=(bd.fat?bd.fat+'<span class="s-unit">%</span>':"-");if(pE)pE.innerHTML=(bd.protein?bd.protein+'<span class="s-unit">%</span>':"-");const gE=document.getElementById("gVisceral"),gcE=document.getElementById("gVisceralCurrent");if(gE&&bd.visceral){const vv=parseFloat(bd.visceral);gE.textContent=vv>=10?"内脏脂肪 "+vv+" 级 → <9":"内脏脂肪 → <9";if(gcE)gcE.textContent="当前 "+vv+" 级";}}
+function openBodyModal(){document.getElementById("bDate").value=selDate;const bd=bodyData[selDate]||{};document.getElementById("bWeight").value=bd.weight||"";document.getElementById("bFat").value=bd.fat||"";document.getElementById("bVisceral").value=bd.visceral||"";document.getElementById("bProtein").value=bd.protein||"";document.getElementById("bodyModal").classList.add("active");}
+function closeModal(){document.getElementById("bodyModal").classList.remove("active");}
+function saveBody(){const bd={weight:document.getElementById("bWeight").value,fat:document.getElementById("bFat").value,visceral:document.getElementById("bVisceral").value,protein:document.getElementById("bProtein").value};bodyData[selDate]=bd;localStorage.setItem("fit_body_"+selDate,JSON.stringify(bd));loadBodyData(selDate);closeModal();showToast("已保存","ok");}
+function showToast(msg,type=""){const t=document.getElementById("toast");t.textContent=msg;t.className="toast "+(type?"ok":"");t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2000);}
+</script>
+</body>
+</html>
