@@ -241,7 +241,7 @@ let tokenExpire = 0;
 
 async function getFeishuToken() {
   if (feishuToken && Date.now() < tokenExpire) return feishuToken;
-  const r = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+  const r = await fetch("https://lucky-glitter-385e.idjk.workers.dev/proxy/auth/v3/tenant_access_token/internal", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({app_id: FEISHU_APP_ID, app_secret: FEISHU_APP_SECRET})
@@ -255,7 +255,7 @@ async function getFeishuToken() {
 
 async function getFeishuDoc(docId) {
   const token = await getFeishuToken();
-  const r = await fetch("https://open.feishu.cn/open-apis/docx/v1/documents/" + docId + "/raw_content", {
+  const r = await fetch("https://lucky-glitter-385e.idjk.workers.dev/proxy/docx/v1/documents/" + docId + "/raw_content", {
     headers: {"Authorization": "Bearer " + token}
   });
   const d = await r.json();
