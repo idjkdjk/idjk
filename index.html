@@ -173,17 +173,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 
 <div class="card" id="dietSummaryCard" style="display:none;">
-<div class="section-title">🍽️ 今日饮食记录</div>
+<div style="font-size:16px;font-weight:700;color:#374151;margin-bottom:14px;">🍽️ 今日饮食记录</div>
 <div id="dietDebug" style="background:#fee;font-size:11px;padding:4px;margin-bottom:8px;display:none;"></div>
 <div id="dietNutritionSummary"></div>
 <div id="dietItemsList"></div>
 </div>
 
-<div class="card">
-<div class="section-title">📈 今日进度</div>
-<div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-<div class="progress-text" id="progressText">已完成 0 / 0 项</div>
-<div class="sync-status"><div class="sync-dot" id="syncDot"></div><span id="syncText">连接中...</span></div>
+<div class="card" id="mainTrainingCard" style="display:none;">
+<div style="background:linear-gradient(135deg,#4F46E5,#6366F1);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:24px;">🏃</span>
+    <span style="font-size:16px;font-weight:700;color:white;">今日训练</span>
+  </div>
+  <div id="mainTrainingCalBadge"></div>
+</div>
+<div id="mainTrainingRecords"></div>
 </div>
 
 <div class="card" id="dayDetail"></div>
@@ -209,6 +213,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 </div>
 </div>
 </div>
+
+<div class="card" id="recommendDietCard">
+<div style="font-size:16px;font-weight:700;color:#374151;margin-bottom:14px;">💡 推荐饮食</div>
+<div id="recommendDietList" style="display:flex;flex-direction:column;gap:12px;"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -228,62 +236,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 <script>
 // 4月完整计划数据 - 包含每周训练类型
-// 飞书API配置
-const FEISHU_APP_ID = "cli_a95993a8d378dcef";
-const FEISHU_APP_SECRET = "iQSq9ZuH3UKp6bKJpIX0Khx3BqLwPQf3";
-const DOCS = {
-  body: "PsZndjut9obmkwxLVYEcSSoXnmg",
-  training: "ON0Wd24B3o6SZ0xyNsfcDN1Mnhe",
-  diet: "HHs8dnpOjos51mxC6FFcHQFXnAT"
-};
-let feishuToken = "";
-let tokenExpire = 0;
-
-async function getFeishuToken() {
-  if (feishuToken && Date.now() < tokenExpire) return feishuToken;
-  const r = await fetch("https://lucky-glitter-385e.idjk.workers.dev/proxy/auth/v3/tenant_access_token/internal", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({app_id: FEISHU_APP_ID, app_secret: FEISHU_APP_SECRET})
-  });
-  const d = await r.json();
-  if (d.code !== 0) throw new Error(d.msg);
-  feishuToken = d.tenant_access_token;
-  tokenExpire = Date.now() + (d.expire - 60) * 1000;
-  return feishuToken;
-}
-
-async function getFeishuDoc(docId) {
-  const token = await getFeishuToken();
-  const r = await fetch("https://lucky-glitter-385e.idjk.workers.dev/proxy/docx/v1/documents/" + docId + "/raw_content", {
-    headers: {"Authorization": "Bearer " + token}
-  });
-  const d = await r.json();
-  if (!d.data || !d.data.content) return "";
-  return d.data.content;
-}
-
 const WEEKLY_TYPES = {
-  1: ['push','pull','legs','cardio','rest'],
-  2: ['push','pull','legs','cardio','push','pull','rest'],
-  3: ['legs','cardio','push','pull','legs','cardio','rest'],
-  4: ['push','pull','legs','cardio','push','pull','rest'],
-  5: ['push','pull']
+  1: ['chest_abs','back_arms','rest','legs_core','shoulder_aero','full_body','rest'],
+  2: ['chest_abs','back_arms','rest','legs_core','shoulder_aero','full_body','rest'],
+  3: ['chest_abs','back_arms','rest','legs_core','shoulder_aero','full_body','rest'],
+  4: ['chest_abs','back_arms','rest','legs_core','shoulder_aero','full_body','rest'],
+  5: ['chest_abs','back_arms','rest','legs_core','shoulder_aero']
 };
 
 const TYPE_NAMES = {
-  push: '上肢推',
-  pull: '上肢拉',
-  legs: '下肢+核心',
-  cardio: '核心+有氧',
+  chest_abs: '胸部+腹肌',
+  back_arms: '背部+手臂',
+  legs_core: '腿部+核心',
+  shoulder_aero: '肩部+有氧',
+  full_body: '综合力量',
   rest: '休息'
 };
 
 const TYPE_COLORS = {
-  push: '#EF4444',
-  pull: '#3B82F6',
-  legs: '#10B981',
-  cardio: '#F59E0B',
+  chest_abs: '#EF4444',
+  back_arms: '#3B82F6',
+  legs_core: '#10B981',
+  shoulder_aero: '#F59E0B',
+  full_body: '#F97316',
   rest: '#8B5CF6'
 };
 
@@ -343,6 +318,7 @@ function init() {
   renderDayDetail();
   loadBodyData(selectedDate);
   updateCalendarCollapsed();
+  renderRecommendDiet();
 }
 
 // Calendar toggle
@@ -367,9 +343,9 @@ function toggleCalendar() {
 function updateCalendarCollapsed() {
   const plan = MONTH_PLANS[selectedDate] || {};
   const day = parseInt(selectedDate.split('-')[2]);
-  const typeIcons = { 'push': '💪', 'pull': '💪', 'legs': '🦵', 'cardio': '🏃', 'rest': '😴' };
+  const typeIcons = { 'chest_abs': '💪', 'back_arms': '💪', 'legs_core': '🦵', 'shoulder_aero': '💪', 'full_body': '🔥', 'rest': '😴' };
   const icon = typeIcons[plan.type] || '📅';
-  const typeNames = { 'push': '推', 'pull': '拉', 'legs': '腿', 'cardio': '有氧', 'rest': '休息' };
+  const typeNames = { 'chest_abs': '胸部+腹肌', 'back_arms': '背部+手臂', 'legs_core': '腿部+核心', 'shoulder_aero': '肩部+有氧', 'full_body': '综合力量', 'rest': '休息' };
   const typeName = typeNames[plan.type] || plan.name || '';
   
   const summary = document.getElementById('todaySummary');
@@ -449,50 +425,198 @@ function renderDayDetail() {
   
   const typeColor = TYPE_COLORS[plan.type] || '#666';
   const isRest = plan.type === 'rest';
+  const typeName = plan.name || '';
   
-  let content = `
-    <div class="section-title" style="color:${typeColor}">${plan.name}</div>
-    <div style="text-align:center;margin-bottom:20px;">
-      <span style="font-size:24px;font-weight:700;">${selectedDate}</span>
-      <span style="margin-left:12px;color:var(--gray-500);">${plan.day}</span>
-    </div>`;
+  // 训练类型对应的颜色和图标
+  const typeInfo = {
+    chest_abs: { icon: '💪', gradient: 'linear-gradient(135deg,#EF4444,#F97316)', bg: '#FEF2F2', border: '#FECACA' },
+    back_arms: { icon: '💪', gradient: 'linear-gradient(135deg,#3B82F6,#6366F1)', bg: '#EFF6FF', border: '#BFDBFE' },
+    legs_core: { icon: '🦵', gradient: 'linear-gradient(135deg,#10B981,#22C55E)', bg: '#F0FDF4', border: '#BBF7D0' },
+    shoulder_aero: { icon: '💪', gradient: 'linear-gradient(135deg,#F59E0B,#FBBF24)', bg: '#FFFBEB', border: '#FDE68A' },
+    full_body: { icon: '🔥', gradient: 'linear-gradient(135deg,#F97316,#EF4444)', bg: '#FFF7ED', border: '#FED7AA' },
+    rest: { icon: '😴', gradient: 'linear-gradient(135deg,#8B5CF6,#A78BFA)', bg: '#FAF5FF', border: '#E9D5FF' }
+  };
+  const info = typeInfo[plan.type] || typeInfo.rest;
+  
+  // 早上训练内容（根据文档）
+  const morningTraining = {
+    chest_abs: [
+      {text:'哑铃卧推',sets:'3×12个',weight:'13kg'},
+      {text:'哑铃飞鸟',sets:'2×12个',weight:'8kg'},
+      {text:'俯卧撑',sets:'3×10个',weight:'身体自重'}
+    ],
+    back_arms: [
+      {text:'哑铃划船',sets:'3×12个',weight:'13kg'},
+      {text:'俯卧撑',sets:'3×10个',weight:'身体自重'}
+    ],
+    legs_core: [
+      {text:'深蹲',sets:'3×12个',weight:'哑铃/自重'},
+      {text:'箭步蹲',sets:'2×10个/侧',weight:'自重'}
+    ],
+    shoulder_aero: [
+      {text:'哑铃肩推',sets:'3×10个',weight:'8kg'},
+      {text:'侧平举',sets:'2×12个',weight:'5kg'},
+      {text:'俯卧撑',sets:'3×10个',weight:'身体自重'}
+    ],
+    full_body: [
+      {text:'帕梅拉12分钟HIIT',sets:'',weight:''},
+      {text:'深蹲',sets:'3×12个',weight:'自重'},
+      {text:'仰卧撑',sets:'3×12个',weight:'凳上臂弯举'}
+    ],
+    rest: []
+  };
+  
+  let content = `<div style="margin-bottom:20px;">
+    <div style="background:${info.gradient};border-radius:16px;padding:20px;text-align:center;margin-bottom:16px;">
+      <div style="font-size:32px;margin-bottom:8px;">${info.icon}</div>
+      <div style="font-size:20px;font-weight:700;color:white;">${typeName}</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-top:6px;">${selectedDate} ${plan.day}</div>
+    </div>
+  </div>`;
   
   if (isRest) {
-    content += `
-      <div class="train-section">
-        <div class="train-title">🧘 今日活动</div>
-        <div class="train-item" onclick="toggleItem('rest_walk')"><div class="checkbox ${completedItems['rest_walk'] ? 'checked' : ''}">${completedItems['rest_walk'] ? '✓' : ''}</div><div class="train-text">散步30分钟 + 全身拉伸20分钟</div></div>
-        <div class="train-item" onclick="toggleItem('rest_recovery')"><div class="checkbox ${completedItems['rest_recovery'] ? 'checked' : ''}">${completedItems['rest_recovery'] ? '✓' : ''}</div><div class="train-text">主动恢复：泡沫轴/拉伸/瑜伽</div></div>
-        <div class="train-item" onclick="toggleItem('rest_sleep')"><div class="checkbox ${completedItems['rest_sleep'] ? 'checked' : ''}">${completedItems['rest_sleep'] ? '✓' : ''}</div><div class="train-text">保证睡眠，让身体恢复</div></div>
-      </div>`;
-  } else {
-    content += `
-      <div class="train-section">
-        <div class="train-title">🌅 早上训练 (7:10-8:00)</div>
-        <div class="train-item" onclick="toggleItem('morning_1')"><div class="checkbox ${completedItems['morning_1'] ? 'checked' : ''}">${completedItems['morning_1'] ? '✓' : ''}</div><div class="train-text">开合跳 3×50个</div></div>
-        <div class="train-item" onclick="toggleItem('morning_2')"><div class="checkbox ${completedItems['morning_2'] ? 'checked' : ''}">${completedItems['morning_2'] ? '✓' : ''}</div><div class="train-text">平板支撑 3×1min</div></div>
-        <div class="train-item" onclick="toggleItem('morning_3')"><div class="checkbox ${completedItems['morning_3'] ? 'checked' : ''}">${completedItems['morning_3'] ? '✓' : ''}</div><div class="train-text">登山者 2×30s</div></div>
-        <div class="train-item" onclick="toggleItem('morning_4')"><div class="checkbox ${completedItems['morning_4'] ? 'checked' : ''}">${completedItems['morning_4'] ? '✓' : ''}</div><div class="train-text">拉伸</div></div>
+    content += `<div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="background:#FAF5FF;border:2px solid #E9D5FF;border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">🧘</span>
+        <div><div style="font-weight:700;color:#7C3AED;font-size:14px;">散步 + 全身拉伸</div><div style="color:#6B7280;font-size:12px;">30分钟 + 20分钟</div></div>
       </div>
-      
-      <div class="train-section">
-        <div class="train-title" style="color:${typeColor}">🌙 晚间训练 (18:00-19:45)</div>
+      <div style="background:#F0FDF4;border:2px solid #BBF7D0;border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">😴</span>
+        <div><div style="font-weight:700;color:#16A34A;font-size:14px;">充分睡眠</div><div style="color:#6B7280;font-size:12px;">让身体恢复</div></div>
+      </div>
+    </div>`;
+  } else {
+    // 早上训练
+    const morningItems = morningTraining[plan.type] || [];
+    if (morningItems.length > 0) {
+      content += `<div style="margin-bottom:16px;">
+        <div style="background:#FEF3C7;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">🌅</span>
+          <span style="font-weight:700;color:#D97706;font-size:14px;">早上训练 (07:10-08:00)</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">`;
+      morningItems.forEach(item => {
+        content += `<div style="background:white;border:2px solid ${info.border};border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:700;color:#374151;font-size:14px;">${item.text}</div>
+          <div style="display:flex;gap:8px;">
+            ${item.sets ? `<span style="background:#FEF3C7;color:#D97706;font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;">${item.sets}</span>` : ''}
+            ${item.weight ? `<span style="background:#F3F4F6;color:#6B7280;font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;">${item.weight}</span>` : ''}
+          </div>
+        </div>`;
+      });
+      content += `</div></div>`;
+    }
+    
+    // 晚间训练
+    content += `<div style="margin-bottom:16px;">
+      <div style="background:#1E293B;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">🌙</span>
+        <span style="font-weight:700;color:white;font-size:14px;">晚间训练 (18:00-19:45)</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
         ${getEveningTraining(plan.type)}
-      </div>`;
+      </div>
+    </div>`;
   }
   
-  // 临时训练记录每天都显示
-  content += `
-      <div class="train-section">
-        <div class="train-title">🏃 临时训练记录</div>
-        <div id="trainingRecords"></div>
-      </div>`;
-  
   document.getElementById('dayDetail').innerHTML = content;
-  
-  document.getElementById('dayDetail').innerHTML = content;
-  updateProgress();
   renderTrainingRecords();
+}
+
+// 渲染推荐饮食模块
+async function renderRecommendDiet() {
+  const card = document.getElementById('recommendDietCard');
+  const container = document.getElementById('recommendDietList');
+  if (!card || !container) return;
+  try {
+    const resp = await fetch('/api/diet-recommend');
+    const data = await resp.json();
+    if (!data.success || !data.items || data.items.length === 0) {
+      // 没数据时隐藏整个卡片
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = 'block';
+    container.style.display = 'flex';
+    
+    // 解析各餐数据
+    const sections = [];
+    let currentSection = { title: '', items: [] };
+    data.items.forEach(item => {
+      if (item.section && item.isTotal) {
+        currentSection.total = item;
+        sections.push(currentSection);
+        currentSection = { title: '', items: [] };
+      } else if (item.section && item.food) {
+        if (currentSection.title !== item.section) {
+          if (currentSection.title) sections.push(currentSection);
+          currentSection = { title: item.section, items: [] };
+        }
+        currentSection.items.push(item);
+      }
+    });
+    if (currentSection.title) sections.push(currentSection);
+    
+    // 餐食图标和颜色
+    const mealInfo = {
+      '早餐': { icon: '🌅', bg: 'linear-gradient(135deg,#F59E0B,#FBBF24)', color: '#fff', border: '#FCD34D', cardBg: '#FFFBEB' },
+      '午餐': { icon: '☀️', bg: 'linear-gradient(135deg,#EA580C,#F97316)', color: '#fff', border: '#FDBA74', cardBg: '#FFF7ED' },
+      '下午加餐': { icon: '🕒', bg: 'linear-gradient(135deg,#16A34A,#22C55E)', color: '#fff', border: '#86EFAC', cardBg: '#F0FDF4' },
+      '晚餐': { icon: '🌙', bg: 'linear-gradient(135deg,#2563EB,#3B82F6)', color: '#fff', border: '#93C5FD', cardBg: '#EFF6FF' }
+    };
+    
+    let html = '';
+    sections.forEach(sec => {
+      const info = mealInfo[sec.title] || { icon: '🍽️', bg: 'linear-gradient(135deg,#6B7280,#9CA3AF)', color: '#fff', border: '#D1D5DB', cardBg: '#F9FAFB' };
+      const totalCal = sec.total?.calories || '';
+      const totalPro = sec.total?.protein || '';
+      
+      // 餐食头部
+      html += `<div style="margin-bottom:16px;">
+        <div style="background:${info.bg};border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:24px;">${info.icon}</span>
+            <span style="font-weight:700;font-size:16px;color:${info.color};">${sec.title}</span>
+          </div>`;
+      if (totalCal) {
+        html += `<span style="background:rgba(255,255,255,0.25);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:${info.color};">🔥 ${totalCal}kcal</span>`;
+      }
+      html += `</div>`;
+      
+      // 每项食物
+      sec.items.forEach(item => {
+        const n = item;
+        const foodDesc = item.food || '';
+        const nutritionTags = (n.protein || n.carbs || n.fat || n.calories) ?
+          `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;">` +
+          `${n.protein ? `<span style="background:#D1FAE5;color:#15803D;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;border:1px solid #BBF7D0;">🥩 ${n.protein}g</span>` : ''}` +
+          `${n.carbs ? `<span style="background:#FEF3C7;color:#B45309;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;border:1px solid #FDE68A;">🍞 ${n.carbs}g</span>` : ''}` +
+          `${n.fat ? `<span style="background:#FEE2E2;color:#DC2626;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;border:1px solid #FECACA;">🥑 ${n.fat}g</span>` : ''}` +
+          `${n.calories ? `<span style="background:#F3E8FF;color:#7C3AED;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;border:1px solid #DDD6FE;">🔥 ${n.calories}</span>` : ''}` +
+          `</div>` : '';
+        html += `<div style="background:${info.cardBg};border:1px solid ${info.border};border-radius:10px;padding:14px;margin-bottom:8px;">
+          <div style="font-size:14px;color:#374151;font-weight:600;">${foodDesc}</div>
+          ${nutritionTags}
+        </div>`;
+      });
+      
+      // 合计行
+      if (sec.total) {
+        const t = sec.total;
+        html += `<div style="background:${info.bg};border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;font-weight:700;color:${info.color};opacity:0.9;">合计</span>` +
+          `${t.protein ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700;color:${info.color};">🥩 ${t.protein}g 蛋白</span>` : ''}` +
+          `${t.calories ? `<span style="background:rgba(255,255,255,0.3);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700;color:${info.color};">🔥 ${t.calories}kcal</span>` : ''}` +
+          `</div>`;
+      }
+      html += '</div>';
+    });
+    
+    container.innerHTML = html || '<div style="color:var(--gray-500);font-size:13px;">暂无推荐</div>';
+  } catch (e) {
+    console.error('renderRecommendDiet error:', e);
+    card.style.display = 'none';
+  }
 }
 
 // 渲染今日饮食摘要（独立模块）
@@ -528,56 +652,44 @@ function renderDietSummary(date) {
   if (nutrition.protein || nutrition.carbs || nutrition.fat || nutrition.calories) {
     card.style.display = 'block';
     
-    // 计算总热量显示
     const calDisplay = nutrition.calories || '-';
-    const calRaw = nutrition.calories ? nutrition.calories.toString().split('-')[0] : null;
-    const fatDisplay = nutrition.fat || '-';
+    const pDisplay = nutrition.protein || '-';
+    const cDisplay = nutrition.carbs || '-';
+    const fDisplay = nutrition.fat || '-';
+    const fatTarget = 47;
     
+    // 营养汇总头卡
     let html = `
-    <div style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-size:14px;font-weight:600;color:var(--gray-700);">📊 营养摄入</div>
-        <div style="font-size:12px;color:var(--gray-500);">目标摄入</div>
+    <div style="background:linear-gradient(135deg,#059669,#10B981);border-radius:16px;padding:18px 20px;margin-bottom:16px;color:white;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:13px;opacity:0.85;margin-bottom:6px;">🍽️ 今日饮食摄入</div>
+          <div style="font-size:38px;font-weight:800;line-height:1;">${calDisplay}<span style="font-size:16px;font-weight:500;opacity:0.85;"> kcal</span></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:13px;opacity:0.85;">营养均衡</div>
+          <div style="font-size:28px;margin-top:4px;">
+            ${parseFloat(pDisplay) >= 100 ? '✅' : '⚠️'}
+          </div>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">`;
+    </div>
     
-    // 蛋白质
-    const pActual = nutrition.protein || '-';
-    const pPct = nutrition.protein ? Math.min(100, Math.round((nutrition.protein / targets.protein) * 100)) : 0;
-    html += `<div style="text-align:center;padding:12px 6px;background:#F0FDF4;border-radius:10px;border:1px solid #BBF7D0;">
-      <div style="font-size:10px;color:#16A34A;margin-bottom:6px;font-weight:600;">🥩 蛋白质</div>
-      <div style="font-size:18px;font-weight:700;color:#15803D;">${pActual}<span style="font-size:11px;font-weight:400;">g</span></div>
-      <div style="font-size:10px;color:#6B7280;margin-top:4px;">/${targets.protein}g</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+      <div style="text-align:center;padding:14px 8px;background:#F0FDF4;border-radius:12px;border:2px solid #BBF7D0;">
+        <div style="font-size:12px;color:#16A34A;margin-bottom:6px;font-weight:700;">🥩 蛋白质</div>
+        <div style="font-size:22px;font-weight:800;color:#15803D;line-height:1;">${pDisplay}<span style="font-size:12px;font-weight:500;">g</span></div>
+      </div>
+      <div style="text-align:center;padding:14px 8px;background:#FFFBEB;border-radius:12px;border:2px solid #FDE68A;">
+        <div style="font-size:12px;color:#D97706;margin-bottom:6px;font-weight:700;">🍞 碳水</div>
+        <div style="font-size:22px;font-weight:800;color:#B45309;line-height:1;">${cDisplay}<span style="font-size:12px;font-weight:500;">g</span></div>
+      </div>
+      <div style="text-align:center;padding:14px 8px;background:#FEF2F2;border-radius:12px;border:2px solid #FECACA;">
+        <div style="font-size:12px;color:#DC2626;margin-bottom:6px;font-weight:700;">🥑 脂肪</div>
+        <div style="font-size:22px;font-weight:800;color:#B91C1C;line-height:1;">${fDisplay}<span style="font-size:12px;font-weight:500;">g</span></div>
+      </div>
     </div>`;
     
-    // 碳水
-    const cActual = nutrition.carbs || '-';
-    const cPct = nutrition.carbs ? Math.min(100, Math.round((nutrition.carbs / targets.carbs) * 100)) : 0;
-    html += `<div style="text-align:center;padding:12px 6px;background:#FFFBEB;border-radius:10px;border:1px solid #FDE68A;">
-      <div style="font-size:10px;color:#D97706;margin-bottom:6px;font-weight:600;">🍞 碳水</div>
-      <div style="font-size:18px;font-weight:700;color:#B45309;">${cActual}<span style="font-size:11px;font-weight:400;">g</span></div>
-      <div style="font-size:10px;color:#6B7280;margin-top:4px;">/${targets.carbs}g</div>
-    </div>`;
-    
-    // 脂肪
-    const fatTarget = 47; // 默认脂肪目标
-    const fActual = fatDisplay;
-    const fPct = nutrition.fat ? Math.min(100, Math.round((nutrition.fat / fatTarget) * 100)) : 0;
-    html += `<div style="text-align:center;padding:12px 6px;background:#FEF2F2;border-radius:10px;border:1px solid #FECACA;">
-      <div style="font-size:10px;color:#DC2626;margin-bottom:6px;font-weight:600;">🥑 脂肪</div>
-      <div style="font-size:18px;font-weight:700;color:#B91C1C;">${fActual}<span style="font-size:11px;font-weight:400;">g</span></div>
-      <div style="font-size:10px;color:#6B7280;margin-top:4px;">/${fatTarget}g</div>
-    </div>`;
-    
-    // 热量
-    const calPct = calRaw ? Math.min(100, Math.round((parseInt(calRaw) / targets.calories) * 100)) : 0;
-    html += `<div style="text-align:center;padding:12px 6px;background:#FAF5FF;border-radius:10px;border:1px solid #E9D5FF;">
-      <div style="font-size:10px;color:#9333EA;margin-bottom:6px;font-weight:600;">🔥 热量</div>
-      <div style="font-size:18px;font-weight:700;color:#7E22CE;">${calDisplay}</div>
-      <div style="font-size:10px;color:#6B7280;margin-top:4px;">/${targets.calories}</div>
-    </div>`;
-    
-    html += '</div></div>';
     nutritionEl.innerHTML = html;
   } else {
     card.style.display = 'none';
@@ -587,16 +699,63 @@ function renderDietSummary(date) {
   if (!items || items.length === 0) {
     itemsEl.innerHTML = '<div style="color:var(--gray-500);font-size:13px;text-align:center;padding:20px;">暂无饮食记录</div>';
   } else {
-    const mealIcons = { '早餐': '🌅', '午饭': '☀️', '中午': '☀️', '午餐': '☀️', '下午加餐': '🕒', '加餐': '🕒', '晚饭': '🌙', '晚餐': '🌙', '夜宵': '🌃' };
-    itemsEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;">` + 
+    // 从content中解析营养成分
+    const parseNutrition = (content) => {
+      const result = { protein: null, carbs: null, fat: null, calories: null };
+      if (!content) return result;
+      const proteinMatch = content.match(/蛋白[约]?(\d+)[g克]/);
+      const carbsMatch = content.match(/碳水[约]?(\d+)[g克]/);
+      const fatMatch = content.match(/脂肪[约]?(\d+)[g克]/);
+      const calMatch = content.match(/热量[约]?(\d+)[千]*[kcal千卡]*|(\d+)[千卡]*kcal/);
+      if (proteinMatch) result.protein = proteinMatch[1];
+      if (carbsMatch) result.carbs = carbsMatch[1];
+      if (fatMatch) result.fat = fatMatch[1];
+      if (calMatch) result.calories = calMatch[1] || calMatch[2];
+      return result;
+    };
+
+    // 餐食颜色映射
+    const getMealColor = (type) => {
+      if (!type) return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB', icon: '🍽️' };
+      const t = type.toLowerCase();
+      if (t.includes('早餐') || t.includes('早')) return { bg: '#FEF3C7', color: '#D97706', border: '#FDE68A', icon: '🌅' };
+      if (t.includes('午餐') || t.includes('午饭') || t.includes('中午')) return { bg: '#FFFBEB', color: '#EA580C', border: '#FED7AA', icon: '☀️' };
+      if (t.includes('下午') || t.includes('加餐') || t.includes('上午')) return { bg: '#F0FDF4', color: '#16A34A', border: '#BBF7D0', icon: '🕒' };
+      if (t.includes('晚餐') || t.includes('晚饭') || t.includes('夜宵')) return { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE', icon: '🌙' };
+      return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB', icon: '🍽️' };
+    };
+    
+    itemsEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;">' + 
       items.map(item => {
-        const icon = mealIcons[item.type] || '🍽️';
-        return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:#F9FAFB;border-radius:10px;border:1px solid #E5E7EB;">
-          <div style="font-size:24px;line-height:1;">${icon}</div>
-          <div style="flex:1;">
-            <div style="font-weight:600;color:#374151;font-size:14px;margin-bottom:4px;">${item.type}</div>
-            <div style="color:#6B7280;font-size:13px;line-height:1.4;">${item.content}</div>
+        const mc = getMealColor(item.type);
+        const n = parseNutrition(item.content);
+        const foodDesc = item.content.split('|')[0].trim();
+        const foodNote = item.content.split('|').slice(1).join('|').trim(); // 营养部分
+        const nutritionTags = (n.protein || n.carbs || n.fat) ? `
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;">
+            ${n.protein ? `<span style="background:#D1FAE5;color:#15803D;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;">🥩 ${n.protein}g</span>` : ''}
+            ${n.carbs ? `<span style="background:#FEF3C7;color:#B45309;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;">🍞 ${n.carbs}g</span>` : ''}
+            ${n.fat ? `<span style="background:#FEE2E2;color:#DC2626;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;">🥑 ${n.fat}g</span>` : ''}
+          </div>` : '';
+        
+        return `<div style="background:${mc.bg};border:2px solid ${mc.border};border-radius:14px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="font-size:28px;">${mc.icon}</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-weight:700;color:${mc.color};font-size:15px;">${item.type.split('（')[0]}</span>
+                  ${item.type.includes('（') ? `<span style="background:rgba(0,0,0,0.08);color:${mc.color};font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;">⏰ ${item.type.match(/（~?(\d{2}:\d{2})/)?.[1] || ''}</span>` : ''}
+                </div>
+                <div style="color:#6B7280;font-size:13px;margin-top:2px;">${foodDesc}</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+              ${item.type.includes('（') ? `<span style="background:rgba(0,0,0,0.08);color:${mc.color};font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;">⏰ ${item.type.match(/（~?(\d{2}:\d{2})/)?.[1] || ''}</span>` : ''}
+              ${n.calories ? `<span style="background:linear-gradient(135deg,#EF4444,#F97316);color:white;font-size:14px;font-weight:800;padding:6px 12px;border-radius:10px;">🔥 ${n.calories}</span>` : ''}
+            </div>
           </div>
+          ${nutritionTags}
         </div>`;
       }).join('') + '</div>';
   }
@@ -606,56 +765,104 @@ function renderDietSummary(date) {
 function getDietContent(date) {
   const data = dietCache[date];
   const items = data?.items || [];
+  const parseNutrition = (content) => {
+    const result = { protein: null, carbs: null, fat: null, calories: null };
+    if (!content) return result;
+    const proteinMatch = content.match(/蛋白[约]?(\d+)[g克]/);
+    const carbsMatch = content.match(/碳水[约]?(\d+)[g克]/);
+    const fatMatch = content.match(/脂肪[约]?(\d+)[g克]/);
+    const calMatch = content.match(/热量[约]?(\d+)[千]*[kcal千卡]*|(\d+)[千卡]*kcal/);
+    if (proteinMatch) result.protein = proteinMatch[1];
+    if (carbsMatch) result.carbs = carbsMatch[1];
+    if (fatMatch) result.fat = fatMatch[1];
+    if (calMatch) result.calories = calMatch[1] || calMatch[2];
+    return result;
+  };
   if (!items || items.length === 0) {
     return '<div class="meal-item"><div class="meal-text" style="color:var(--gray-500);">暂无饮食记录</div></div>';
   }
-  return items.map(item => 
-    `<div class="meal-item"><div class="meal-text"><strong>${item.type}</strong>：${item.content}</div></div>`
-  ).join('');
+  return items.map(item => {
+    const n = parseNutrition(item.content);
+    const foodDesc = item.content.split('|')[0].trim();
+    const mealTime = item.type.includes('（') ? item.type.match(/（~?(\d{2}:\d{2})/)?.[1] || '' : '';
+    const nutritionBadges = (n.protein || n.carbs || n.fat) ?
+      `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">` +
+      `${n.protein ? `<span style="background:#D1FAE5;color:#15803D;font-size:10px;padding:1px 6px;border-radius:20px;">🥩 ${n.protein}g</span>` : ''}` +
+      `${n.carbs ? `<span style="background:#FEF3C7;color:#B45309;font-size:10px;padding:1px 6px;border-radius:20px;">🍞 ${n.carbs}g</span>` : ''}` +
+      `${n.fat ? `<span style="background:#FEE2E2;color:#DC2626;font-size:10px;padding:1px 6px;border-radius:20px;">🥑 ${n.fat}g</span>` : ''}` +
+      `</div>` : '';
+    return `<div class="meal-item">
+      <div class="meal-text" style="flex:1;"><strong>${item.type.split('（')[0]}</strong>${mealTime ? ` <span style="background:#F3F4F6;color:#6B7280;font-size:11px;padding:1px 6px;border-radius:12px;">⏰${mealTime}</span>` : ''}：${foodDesc}${nutritionBadges}</div>
+      ${n.calories ? `<span style="background:linear-gradient(135deg,#EF4444,#F97316);color:white;font-size:12px;font-weight:800;padding:4px 10px;border-radius:8px;white-space:nowrap;">🔥 ${n.calories}</span>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function getEveningTraining(type) {
   const trainings = {
-    push: [
-      {text:'哑铃推肩',detail:'4×12 10-12kg'},
-      {text:'哑铃侧平举',detail:'3×15 4-6kg'},
-      {text:'俯身反向飞鸟',detail:'3×15 3-4kg'},
-      {text:'过头臂屈伸',detail:'3×12 6-8kg'},
-      {text:'集中弯举',detail:'3×12 6-8kg'},
-      {text:'卷腹',detail:'3×20'}
+    chest_abs: [
+      {text:'帕梅拉12分钟HIIT',detail:''},
+      {text:'哑铃卧推',detail:'3×10个 13-15kg'},
+      {text:'哑铃上斜卧推',detail:'2×10个 10kg'},
+      {text:'哑铃飞鸟',detail:'2×12个 8kg'},
+      {text:'帕梅拉卷腹',detail:'10分钟'}
     ],
-    pull: [
-      {text:'哑铃卧推',detail:'4×12 13kg'},
-      {text:'单臂哑铃划船',detail:'4×12/侧 13kg'},
-      {text:'哑铃飞鸟',detail:'3×12 4kg'},
-      {text:'卷腹',detail:'3×20'},
-      {text:'平板支撑',detail:'3×60s'}
+    back_arms: [
+      {text:'帕梅拉12分钟HIIT',detail:''},
+      {text:'哑铃划船',detail:'4×10个 13-15kg'},
+      {text:'单手哑铃弯举',detail:'3×10个/侧 8-10kg'},
+      {text:'站立哑铃硬拉',detail:'3×12个 13kg'},
+      {text:'仰卧撑',detail:'3×12个（凳上臂弯举）'},
+      {text:'仰卧卷腹',detail:'10分钟'}
     ],
-    legs: [
-      {text:'深蹲',detail:'4×12 自重'},
-      {text:'哑铃弓步蹲',detail:'3×10/侧'},
-      {text:'提踵',detail:'4×15'},
-      {text:'卷腹',detail:'3×20'},
-      {text:'平板支撑',detail:'3×60s'},
-      {text:'登山者',detail:'3×30s'}
+    legs_core: [
+      {text:'帕梅拉12分钟HIIT',detail:''},
+      {text:'手持哑铃深蹲',detail:'3×12个 13kg'},
+      {text:'哑铃弓步蹲',detail:'3×10个/侧 8kg'},
+      {text:'帕梅拉卷腹',detail:'10分钟'}
     ],
-    cardio: [
-      {text:'开合跳',detail:'4×50个'},
-      {text:'跳绳',detail:'3×3分钟'},
-      {text:'平板支撑',detail:'3×1min'},
-      {text:'卷腹',detail:'3×25个'},
-      {text:'登山者',detail:'3×30s'}
+    shoulder_aero: [
+      {text:'HIIT（Apple Fitness）',detail:'15-20分钟'},
+      {text:'哑铃肩推',detail:'3×10个 10kg'},
+      {text:'哑铃侧平举',detail:'3×12个 6kg'},
+      {text:'哑铃前平举',detail:'2×12个 5kg'}
+    ],
+    full_body: [
+      {text:'HIIT（Apple Fitness）',detail:'15分钟'},
+      {text:'哑铃全身循环',detail:'卧推+划船+深蹲+肩推 各3×10'},
+      {text:'站立哑铃硬拉',detail:'3×12个 13kg'},
+      {text:'帕梅拉卷腹',detail:'10分钟'}
+    ],
+    rest: [
+      {text:'完全休息',detail:'充分睡眠'}
     ]
   };
   
+  const typeBg = {
+    chest_abs: {bg:'#FEF2F2',border:'#FECACA',color:'#DC2626'},
+    back_arms: {bg:'#EFF6FF',border:'#BFDBFE',color:'#2563EB'},
+    legs_core: {bg:'#F0FDF4',border:'#BBF7D0',color:'#16A34A'},
+    shoulder_aero: {bg:'#FFFBEB',border:'#FDE68A',color:'#D97706'},
+    full_body: {bg:'#FFF7ED',border:'#FED7AA',color:'#EA580C'},
+    rest: {bg:'#FAF5FF',border:'#E9D5FF',color:'#7C3AED'}
+  };
+  const colors = typeBg[type] || typeBg.rest;
+  const isChecked = (id) => completedItems[id] ? 'opacity:1;' : 'opacity:0.4;';
+  
   const items = trainings[type] || [];
-  return items.map((item, i) => `
-    <div class="train-item" onclick="toggleItem('evening_${type}_${i}')">
-      <div class="checkbox ${completedItems['evening_'+type+'_'+i] ? 'checked' : ''}">${completedItems['evening_'+type+'_'+i] ? '✓' : ''}</div>
-      <div class="train-text">${item.text}</div>
-      <div class="train-detail">${item.detail}</div>
-    </div>
-  `).join('');
+  return items.map((item, i) => {
+    const id = 'evening_'+type+'_'+i;
+    const checked = completedItems[id];
+    return `<div onclick="toggleItem('${id}')" style="background:${checked ? '#F0FDF4' : colors.bg};border:2px solid ${colors.border};border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer;${isChecked(id)}">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${colors.color};background:${checked ? colors.color : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:700;">${checked ? '✓' : ''}</div>
+          <span style="font-weight:700;color:${colors.color};font-size:14px;">${item.text}</span>
+        </div>
+        ${item.detail ? `<span style="background:rgba(0,0,0,0.06);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;color:${colors.color};">${item.detail}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function toggleItem(id) {
@@ -770,6 +977,78 @@ function updateBodyStatsDisplay() {
   }
 }
 
+function renderMainTrainingRecords() {
+  const container = document.getElementById('mainTrainingRecords');
+  const card = document.getElementById('mainTrainingCard');
+  const calBadge = document.getElementById('mainTrainingCalBadge');
+  if (!container || !card) return;
+  
+  const records = trainingCache[selectedDate] || [];
+  if (records.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  
+  // 计算总热量
+  const summaryRecord = records.find(r => r.content?.includes('汇总') || r.time === '汇总');
+  const totalCal = summaryRecord?.calories || '';
+  if (calBadge) {
+    if (totalCal) {
+      calBadge.innerHTML = `<span style="background:rgba(255,255,255,0.25);border-radius:20px;padding:6px 14px;font-size:14px;font-weight:800;color:white;">🔥 ${totalCal} kcal</span>`;
+    } else {
+      calBadge.innerHTML = '';
+    }
+  }
+  
+  // 训练类型颜色映射
+  const getTrainingColor = (content) => {
+    if (!content) return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+    const c = content.toLowerCase();
+    if (c.includes('hiit')) return { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' };
+    if (c.includes('帕梅拉') || c.includes('卷腹') || c.includes('腹')) return { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA' };
+    if (c.includes('跑步') || c.includes('慢跑')) return { bg: '#F0FDF4', color: '#16A34A', border: '#BBF7D0' };
+    if (c.includes('自重') || c.includes('仰卧') || c.includes('俯卧撑')) return { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' };
+    if (c.includes('划船') || c.includes('硬拉') || c.includes('弯举')) return { bg: '#FDF4FF', color: '#9333EA', border: '#E9D5FF' };
+    if (c.includes('深蹲') || c.includes('弓步') || c.includes('提踵')) return { bg: '#F0FDF4', color: '#15803D', border: '#BBF7D0' };
+    if (c.includes('肩推') || c.includes('侧平') || c.includes('前平')) return { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' };
+    if (c.includes('汇总') || c.includes('合计')) return { bg: '#7C3AED', color: '#fff', border: '#A78BFA' };
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+  };
+  
+  const nonSummaryRecords = records.filter(r => !r.content?.includes('汇总') && r.time !== '汇总');
+  
+  let html = '';
+  
+  // 训练列表
+  if (nonSummaryRecords.length > 0) {
+    nonSummaryRecords.forEach(r => {
+      const color = getTrainingColor(r.content);
+      const timeDisplay = r.time ? `<span style="background:rgba(0,0,0,0.08);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;color:${color.color};">⏰ ${r.time}</span>` : '';
+      const badges = [
+        r.duration ? `<span style="background:#EFF6FF;color:#2563EB;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;border:1px solid #BFDBFE;">⏱ ${r.duration}</span>` : '',
+        r.sets ? `<span style="background:#FEF3C7;color:#D97706;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;border:1px solid #FDE68A;">💪 ${r.sets}</span>` : '',
+        r.weight ? `<span style="background:#F3F4F6;color:#6B7280;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;border:1px solid #E5E7EB;">⚖️ ${r.weight}</span>` : ''
+      ].filter(Boolean).join('');
+      const calories = r.calories ? `<span style="background:linear-gradient(135deg,#EF4444,#F97316);color:white;font-size:14px;font-weight:800;padding:6px 12px;border-radius:10px;">🔥 ${r.calories}</span>` : '';
+      
+      html += `
+        <div style="background:${color.bg};border:2px solid ${color.border};border-radius:12px;padding:14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+            <div style="font-size:14px;font-weight:700;color:${color.color};line-height:1.3;">${r.content}</div>
+            ${timeDisplay}
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">${badges}</div>
+            ${calories}
+          </div>
+        </div>`;
+    });
+  }
+  
+  container.innerHTML = html || '<div style="text-align:center;color:var(--gray-500);padding:20px;">暂无训练记录</div>';
+}
+
 function renderTrainingRecords() {
   const container = document.getElementById('trainingRecords');
   if (!container) return;
@@ -780,21 +1059,61 @@ function renderTrainingRecords() {
     return;
   }
   
-  container.innerHTML = records.map(r => `
-    <div class="train-item" style="flex-direction:column;align-items:flex-start;">
-      <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:4px;">
-        <span style="font-weight:600;color:var(--primary);">${r.content}</span>
-        <span style="color:var(--gray-500);">${r.time || ''}</span>
-      </div>
-      <div style="font-size:12px;color:var(--gray-500);">
-        ${r.duration ? '时长: ' + r.duration : ''}
-        ${r.sets ? ' | ' + r.sets : ''}
-        ${r.weight ? ' | ' + r.weight : ''}
-        ${r.calories ? ' | ' + r.calories + 'kcal' : ''}
-      </div>
-      ${r.note ? '<div style="font-size:12px;color:var(--gray-700);margin-top:4px;">'+r.note+'</div>' : ''}
-    </div>
-  `).join('');
+  // 训练类型颜色映射
+  const getTrainingColor = (content) => {
+    if (!content) return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+    const c = content.toLowerCase();
+    if (c.includes('hiit')) return { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' };
+    if (c.includes('帕梅拉') || c.includes('卷腹') || c.includes('腹')) return { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA' };
+    if (c.includes('跑步') || c.includes('跑步') || c.includes('慢跑')) return { bg: '#F0FDF4', color: '#16A34A', border: '#BBF7D0' };
+    if (c.includes('自重') || c.includes('仰卧') || c.includes('俯卧撑')) return { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' };
+    if (c.includes('汇总') || c.includes('合计')) return { bg: '#FAF5FF', color: '#7C3AED', border: '#E9D5FF' };
+    return { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' };
+  };
+  
+  container.innerHTML = records.map(r => {
+    const isSummary = r.content && (r.content.includes('汇总') || r.content.includes('合计') || r.time === '汇总');
+    const color = getTrainingColor(r.content);
+    
+    if (isSummary) {
+      // 汇总行：突出显示
+      const totalCal = r.calories || '0';
+      return `
+        <div style="background:linear-gradient(135deg,#7C3AED,#9333EA);border-radius:14px;padding:18px 20px;margin-bottom:12px;color:white;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;opacity:0.85;margin-bottom:4px;">🔥 今日训练消耗</div>
+              <div style="font-size:36px;font-weight:800;line-height:1;">${totalCal}<span style="font-size:16px;font-weight:500;opacity:0.85;"> kcal</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:13px;opacity:0.85;">${r.content}</div>
+              <div style="font-size:24px;font-weight:700;margin-top:4px;">🏆</div>
+            </div>
+          </div>
+        </div>`;
+    }
+    
+    // 普通训练行
+    const timeDisplay = r.time ? `<span style="background:rgba(0,0,0,0.1);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">⏰ ${r.time}</span>` : '';
+    const badges = [
+      r.duration ? `<span style="background:#EFF6FF;color:#2563EB;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;">⏱ ${r.duration}</span>` : '',
+      r.sets ? `<span style="background:#FEF3C7;color:#D97706;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;">💪 ${r.sets}</span>` : '',
+      r.weight ? `<span style="background:#F3F4F6;color:#6B7280;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;">⚖️ ${r.weight}</span>` : ''
+    ].filter(Boolean).join('');
+    const calories = r.calories ? `<span style="background:${color.bg};color:${color.color};font-size:18px;font-weight:800;padding:6px 14px;border-radius:12px;border:2px solid ${color.border};">🔥 ${r.calories}</span>` : '';
+    
+    return `
+      <div style="background:${color.bg};border:2px solid ${color.border};border-radius:14px;padding:16px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div style="font-size:17px;font-weight:700;color:${color.color};line-height:1.2;">${r.content}</div>
+          ${timeDisplay}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${badges}</div>
+          ${calories}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function openBodyModal() {
@@ -826,37 +1145,81 @@ async function saveBodyData() {
   bodyDataCache[date] = data;
   updateBodyStatsDisplay();
   
-  // 保存功能在飞书网页版暂不可用
-    // 如需保存数据，请使用本地localhost版本
-    showToast('数据已更新(只读模式)', 'success');
+  try {
+    await fetch('/api/body', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    showToast('保存成功', 'success');
   } catch (e) {
-    showToast('加载失败: ' + e.message, 'error');
+    showToast('保存失败', 'error');
+  }
   closeBodyModal();
 }
 
 async function loadBodyData(date) {
   try {
     // 从飞书文档获取体测数据
-    const bodyContent = await getFeishuDoc(DOCS.body);
-    const bodyRecords = parseBodyData(bodyContent);
-    Object.keys(bodyRecords).forEach(d => {
-      bodyDataCache[d] = bodyRecords[d];
-    });
+    const docResp = await fetch('/api/body-from-doc');
+    const docData = await docResp.json();
+    if (docData.success && docData.records) {
+      Object.keys(docData.records).forEach(d => {
+        bodyDataCache[d] = docData.records[d];
+      });
+    }
     
-    // 获取训练记录
-    const trainingContent = await getFeishuDoc(DOCS.training);
-    trainingCache = parseTrainingData(trainingContent);
+    // 获取训练记录（从临时训练记录文档）
+    const trainingResp = await fetch('/api/training-temp');
+    const trainingData = await trainingResp.json();
+    if (trainingData.success && trainingData.records) {
+      trainingCache = trainingData.records;
+    }
     
-    // 获取饮食记录
-    const dietContent = await getFeishuDoc(DOCS.diet);
-    dietCache = parseDietData(dietContent);
+    // 获取饮食记录（从飞书文档）
+    const dietResp = await fetch('/api/diet-from-doc');
+    const dietData = await dietResp.json();
+    if (dietData.success && dietData.records) {
+      dietCache = dietData.records;
+    }
     
+    // 再从本地Bitable获取用户手动录入的数据（只填充空白字段，过滤明显无效值）
+    const resp = await fetch('/api/body?date=' + date);
+    const data = await resp.json();
+    if (data.success && data.record) {
+      const existing = bodyDataCache[date] || {};
+      const bitable = data.record;
+      // 体重：只接受 >30kg 的合理值
+      const isValidWeight = (v) => v && !isNaN(v) && parseFloat(v) > 30;
+      // 蛋白质/内脏脂肪：只接受非"-"的有效文本
+      const isValidText = (v) => v && v !== '-' && v !== '-级';
+      if (!existing.weight || isValidWeight(existing.weight)) {
+        if (isValidWeight(bitable.weight)) {
+          existing.weight = bitable.weight;
+        }
+      }
+      if (!existing.visceral || isValidText(existing.visceral)) {
+        if (isValidText(bitable.visceralFat)) {
+          existing.visceral = bitable.visceralFat;
+        }
+      }
+      if (!existing.protein || isValidText(existing.protein)) {
+        if (isValidText(bitable.protein)) {
+          existing.protein = bitable.protein;
+        }
+      }
+      if (!existing.metabolism) {
+        if (bitable.metabolism && bitable.metabolism !== '-') {
+          existing.metabolism = bitable.metabolism;
+        }
+      }
+      bodyDataCache[date] = existing;
+    }
     if (date === selectedDate) {
       updateBodyStatsDisplay();
-      renderTrainingRecords();
+      renderMainTrainingRecords();
       renderDietSummary(date);
       renderDayDetail();
-      updateProgress();
     }
   } catch (e) {
     console.error('Load body data error:', e);
@@ -877,7 +1240,7 @@ function showToast(msg, type) {
 }
 
 init();
-setSyncStatus('synced', '已加载');
+// setSyncStatus('synced', '已加载');
 </script>
 </body>
 </html>
